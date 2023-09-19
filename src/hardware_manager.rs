@@ -2,6 +2,8 @@ use lazy_static::lazy_static;
 use std::convert::From;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
+
+#[derive(Default)]
 struct NavigationManager {
     navigator: navigator_rs::Navigator,
     sentinel: Option<std::thread::JoinHandle<()>>,
@@ -13,12 +15,7 @@ struct Data {
 
 macro_rules! with_navigator {
     () => {
-        NavigationManager::get_instance()
-            .lock()
-            .unwrap()
-            .as_mut()
-            .unwrap()
-            .navigator
+        NavigationManager::get_instance().lock().unwrap().navigator
     };
 }
 
@@ -37,7 +34,7 @@ macro_rules! impl_from_enum {
 }
 
 lazy_static! {
-    static ref NAVIGATOR: Arc<Mutex<Option<NavigationManager>>> = Arc::new(Mutex::new(None));
+    static ref NAVIGATOR: Arc<Mutex<NavigationManager>> = Default::default();
 }
 
 lazy_static! {
@@ -45,24 +42,13 @@ lazy_static! {
 }
 
 impl NavigationManager {
-    pub fn get_instance() -> &'static Mutex<Option<Self>> {
-        if NAVIGATOR.lock().unwrap().is_none() {
-            let navigator = navigator_rs::Navigator::new();
-            *NAVIGATOR.lock().unwrap() = Some(NavigationManager {
-                navigator,
-                sentinel: None,
-            });
-        }
+    pub fn get_instance() -> &'static Mutex<Self> {
         &NAVIGATOR
     }
 
     pub fn init_sensor_reading() {
-        NavigationManager::get_instance()
-            .lock()
-            .unwrap()
-            .as_mut()
-            .unwrap()
-            .sentinel = Some(thread::spawn(|| NavigationManager::sensor_reading(500)))
+        NavigationManager::get_instance().lock().unwrap().sentinel =
+            Some(thread::spawn(|| NavigationManager::sensor_reading(500)))
     }
 
     fn sensor_reading(refresh_interval: u64) {
@@ -142,6 +128,14 @@ pub enum PwmChannel {
     All,
 }
 
+pub enum UserLed {
+    Led1,
+    Led2,
+    Led3,
+}
+
+impl_from_enum!(UserLed, navigator_rs::UserLed, Led1, Led2, Led3);
+
 pub struct AxisData {
     x: f32,
     y: f32,
@@ -157,6 +151,18 @@ pub fn init() {
 
 pub fn init_auto_reading() {
     NavigationManager::init_sensor_reading();
+}
+
+pub fn set_led(select: UserLed, state: bool) {
+    with_navigator!().set_led(select.into(), state)
+}
+
+pub fn get_led(select: UserLed) -> bool {
+    with_navigator!().get_led(select.into())
+}
+
+pub fn set_neopixel(rgb_array: Vec<[u8; 3]>) {
+    with_navigator!().set_neopixel(&rgb_array)
 }
 
 pub fn read_accel() -> AxisData {
