@@ -145,7 +145,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WebsocketActor {
     }
 }
 
-#[api_v2_operation]
+#[api_v2_operation(skip)]
 #[get("/ws")]
 pub async fn websocket(
     req: HttpRequest,
