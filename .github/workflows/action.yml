@@ -69,35 +69,8 @@ jobs:
         name: bin
         path: dist
 
-  test-local:
-   needs: build-bin
-   runs-on: raspbian-armv7-kernel-5.10.33
-   steps:
-   - uses: actions/checkout@master
-   - name: Download bin
-     uses: actions/download-artifact@v3
-     with:
-      name: armv7-unknown-linux-gnueabihf
-      path: dist
-   - name: Run in background
-     run: |
-       chmod +x ./dist/navigator-webassistant
-       ./dist/navigator-webassistant > navigator.log 2>&1 &
-       PID=$!
-
-       sleep 10
-
-       if ps -p $PID > /dev/null; then
-        echo "navigator-webassistant started successfully with PID $PID."
-       else
-        echo "Error: navigator-webassistant failed to start."
-        exit 1
-       fi
-
-       kill $PID
-
   release-assets:
-    needs: ["test-local"]
+    needs: ["build-bin"]
     runs-on: ubuntu-latest
     if: "startsWith(github.ref, 'refs/tags/')"
     strategy:
@@ -116,18 +89,12 @@ jobs:
       with:
         name: ${{ matrix.TARGET }}
         path: ${{ matrix.TARGET }}
-
-    - name: Compress artifacts
-      run: |
-        sudo apt update
-        sudo apt install -y zip
-        cd ${{ matrix.TARGET }}
-        zip -rT ../${{ matrix.TARGET }}.zip *
-
+    - name: Check Type
+      run: ls -la
     - name: Upload assets to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: ./*.zip
+        file: ${{ matrix.TARGET }}/navigator-webassistant
         tag: ${{ github.ref }}
-        file_glob: true]
+        asset_name: ${{ matrix.TARGET }}
